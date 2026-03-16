@@ -1,9 +1,11 @@
+import { Expense } from 'src/expenses/entities/expense.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   BeforeInsert,
   BeforeUpdate,
+  OneToMany,
 } from 'typeorm';
 
 @Entity()
@@ -13,6 +15,9 @@ export class Categoria {
 
   @Column({ unique: true })
   nombre: string;
+
+  @OneToMany(() => Expense, (expense) => expense.categoria)
+  gastos: Expense[];
 
   @BeforeInsert()
   @BeforeUpdate()

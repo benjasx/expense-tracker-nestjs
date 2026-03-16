@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CategoriasModule } from './categorias/categorias.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ExpensesModule } from './expenses/expenses.module';
 
 @Module({
   imports: [
@@ -18,6 +19,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       autoLoadEntities: true, // Carga automáticamente los archivos .entity.ts
       synchronize: true, // Crea las tablas en Docker automáticamente al guardar
     }),
+
+    ExpensesModule,
   ],
 })
 export class AppModule {}
