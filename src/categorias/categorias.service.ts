@@ -31,8 +31,9 @@ export class CategoriasService {
     );
   }
 
-  findAll() {
-    return `This action returns all categorias`;
+  async findAll() {
+    const products = await this.categoriaRepository.find();
+    return products;
   }
 
   findOne(id: number) {
