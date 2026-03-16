@@ -1,11 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
+import { Expense } from './entities/expense.entity';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Categoria } from 'src/categorias/entities/categoria.entity';
 
 @Injectable()
 export class ExpensesService {
-  create(createExpenseDto: CreateExpenseDto) {
-    return 'This action adds a new expense';
+  constructor(
+    @InjectRepository(Expense)
+    private readonly expenseRepository: Repository<Expense>,
+
+    @InjectRepository(Categoria)
+    private readonly categoriaRepository: Repository<Categoria>,
+  ) {}
+
+  async create(createExpenseDto: CreateExpenseDto) {
+    const { categoriaId, ...detallesGasto } = createExpenseDto;
+
+    const categoria = await this.categoriaRepository.findOneBy({
+      id: categoriaId,
+    });
+    if (!categoria) {
+      throw new Error(`Categoría con ID ${categoriaId} no encontrada`);
+    }
+
+    try {
+      // 2. Creamos la instancia del gasto y le asignamos la categoría encontrada
+      const gasto = this.expenseRepository.create({
+        ...detallesGasto,
+        categoria: categoria, // Aquí pasamos el objeto completo
+      });
+
+      // 3. Guardamos en la DB
+      return await this.expenseRepository.save(gasto);
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException(
+        'Error al crear el gasto, revisa los logs',
+      );
+    }
   }
 
   findAll() {
