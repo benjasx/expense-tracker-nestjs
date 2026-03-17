@@ -134,4 +134,34 @@ export class ExpensesService {
       'Error inesperado, revisa los logs del servidor',
     );
   }
+
+  async getAnalysis(startDate?: string, endDate?: string) {
+    const query = this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.categoria', 'categoria')
+      .select('categoria.tipo', 'tipo')
+      .addSelect('SUM(expense.monto)', 'total')
+      .groupBy('categoria.tipo');
+
+    // Filtro dinámico por fechas
+    if (startDate && endDate) {
+      // Usamos >= y <= para incluir los días límite
+      query.andWhere('expense.createdAt BETWEEN :start AND :end', {
+        start: `${startDate} 00:00:00`,
+        end: `${endDate} 23:59:59`,
+      });
+    }
+
+    const resumen = await query.getRawMany();
+
+    // ... (el resto de la lógica de formateo de stats que ya teníamos)
+    const stats = { ingresos: 0, gastos: 0, total: 0 };
+    resumen.forEach((row) => {
+      if (row.tipo === 'ingreso') stats.ingresos = parseFloat(row.total);
+      if (row.tipo === 'gasto') stats.gastos = parseFloat(row.total);
+    });
+    stats.total = stats.ingresos - stats.gastos;
+
+    return stats;
+  }
 }
