@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { Expense } from './entities/expense.entity';
@@ -22,40 +27,111 @@ export class ExpensesService {
     const categoria = await this.categoriaRepository.findOneBy({
       id: categoriaId,
     });
+
     if (!categoria) {
-      throw new Error(`Categoría con ID ${categoriaId} no encontrada`);
+      throw new NotFoundException(
+        `Categoría con ID ${categoriaId} no encontrada`,
+      );
     }
 
     try {
-      // 2. Creamos la instancia del gasto y le asignamos la categoría encontrada
-      const gasto = this.expenseRepository.create({
+      const expense = this.expenseRepository.create({
         ...detallesGasto,
-        categoria: categoria, // Aquí pasamos el objeto completo
+        categoria,
       });
 
-      // 3. Guardamos en la DB
-      return await this.expenseRepository.save(gasto);
+      const { categoria: catEntity, ...registroGuardado } =
+        await this.expenseRepository.save(expense);
+      return {
+        ...registroGuardado,
+        categoria: categoria.nombre,
+        tipoMovimiento: categoria.tipo,
+      };
     } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException(
-        'Error al crear el gasto, revisa los logs',
-      );
+      this.handleDBErrors(error);
     }
   }
 
-  findAll() {
-    return `This action returns all expenses`;
+  async findAll() {
+    const expenses = await this.expenseRepository.find({
+      relations: ['categoria'],
+    });
+
+    return expenses.map(({ categoria, ...rest }) => ({
+      ...rest,
+      categoria: categoria?.nombre || 'Sin categoría',
+      tipoMovimiento: categoria.tipo,
+    }));
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} expense`;
+  async findOne(id: string) {
+    const expense = await this.expenseRepository.findOne({
+      where: { id },
+      relations: ['categoria'],
+    });
+
+    if (!expense)
+      throw new NotFoundException(`Gasto con id ${id} no encontrado`);
+
+    // Retornamos el objeto aplanado
+    const { categoria, ...rest } = expense;
+    return {
+      ...rest,
+      categoria: categoria?.nombre || 'sin categoría',
+    };
   }
 
-  update(id: number, updateExpenseDto: UpdateExpenseDto) {
-    return `This action updates a #${id} expense`;
+  async update(id: string, updateExpenseDto: UpdateExpenseDto) {
+    const { categoriaId, ...detallesUpdate } = updateExpenseDto;
+
+    const expense = await this.expenseRepository.preload({
+      id,
+      ...detallesUpdate,
+    });
+
+    if (!expense)
+      throw new NotFoundException(`Gasto con id ${id} no encontrado`);
+
+    if (categoriaId) {
+      const categoria = await this.categoriaRepository.findOneBy({
+        id: categoriaId,
+      });
+      if (!categoria)
+        throw new NotFoundException(`La categoría ${categoriaId} no existe`);
+      expense.categoria = categoria;
+    }
+
+    try {
+      await this.expenseRepository.save(expense);
+
+      return this.findOne(id);
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} expense`;
+  async remove(id: string) {
+    const expense = await this.expenseRepository.findOneBy({ id });
+
+    if (!expense) {
+      throw new NotFoundException(`Gasto con ID ${id} no encontrado`);
+    }
+
+    await this.expenseRepository.remove(expense);
+
+    return {
+      message: `El gasto "${expense.descripcion}" por $${expense.monto} fue eliminado con éxito.`,
+      deletedId: id,
+    };
+  }
+
+  private handleDBErrors(error: any): never {
+    console.log(error);
+    if (error.code === '23505')
+      throw new BadRequestException('Registro duplicado');
+
+    throw new InternalServerErrorException(
+      'Error inesperado, revisa los logs del servidor',
+    );
   }
 }
