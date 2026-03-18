@@ -10,6 +10,7 @@ import { Expense } from './entities/expense.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Categoria } from 'src/categorias/entities/categoria.entity';
+import { SearchExpenseDto } from './dto/search-expense.dto';
 
 @Injectable()
 export class ExpensesService {
@@ -52,15 +53,100 @@ export class ExpensesService {
     }
   }
 
-  async findAll() {
-    const expenses = await this.expenseRepository.find({
-      relations: ['categoria'],
-    });
+  // src/expenses/expenses.service.ts
+  async findAll(searchDto: SearchExpenseDto) {
+    const {
+      limit = 12,
+      offset = 0,
+      term,
+      categoriaId,
+      minMonto,
+      maxMonto,
+      startDate,
+      endDate,
+      tipo,
+    } = searchDto;
 
-    return expenses.map(({ categoria, ...rest }) => ({
-      ...rest,
-      categoria: categoria?.nombre || 'Sin categoría',
-      tipoMovimiento: categoria.tipo,
+    const queryBuilder = this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoinAndSelect('expense.categoria', 'categoria');
+
+    // 1. Filtro de Fechas
+    if (startDate && endDate) {
+      queryBuilder.andWhere('expense.fecha BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    }
+
+    // 2. Filtro por descripción (Term)
+    if (term) {
+      queryBuilder.andWhere('LOWER(expense.descripcion) LIKE :term', {
+        term: `%${term.toLowerCase()}%`,
+      });
+    }
+
+    if (tipo) {
+      queryBuilder.andWhere('categoria.tipo = :tipo', { tipo });
+    }
+
+    // 3. Filtro por Categoría ID
+    if (categoriaId) {
+      queryBuilder.andWhere('categoria.id = :categoriaId', { categoriaId });
+    }
+
+    // 4. Filtro por Monto Mayor o igual
+    if (minMonto) {
+      queryBuilder.andWhere('expense.monto >= :minMonto', { minMonto });
+    }
+
+    if (maxMonto) {
+      queryBuilder.andWhere('expense.monto <= :maxMonto', { maxMonto });
+    }
+    queryBuilder.orderBy('expense.fecha', 'DESC').take(limit).skip(offset);
+
+    const [expenses, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      total,
+      limit,
+      offset,
+      data: expenses,
+    };
+  }
+
+  async getCategoryBreakdown(startDate?: string, endDate?: string) {
+    const query = this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.categoria', 'categoria')
+      // Usamos alias claros para evitar conflictos con los nombres de las tablas
+      .select('categoria.nombre', 'nombre')
+      .addSelect('categoria.tipo', 'tipo')
+      .addSelect('SUM(expense.monto)', 'total')
+      .groupBy('categoria.nombre')
+      .addGroupBy('categoria.tipo')
+      // Ordenamos de mayor a menor gasto/ingreso para que lo más importante salga arriba
+      .orderBy('SUM(expense.monto)', 'DESC');
+
+    // Filtro de fechas mejorado: ahora funciona aunque solo mandes una
+    if (startDate && endDate) {
+      query.andWhere('expense.fecha BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    } else if (startDate) {
+      query.andWhere('expense.fecha >= :start', { start: startDate });
+    } else if (endDate) {
+      query.andWhere('expense.fecha <= :end', { end: endDate });
+    }
+
+    const resultado = await query.getRawMany();
+
+    // Retornamos un mapeo limpio y aseguramos que el total sea número
+    return resultado.map((item) => ({
+      categoria: item.nombre,
+      tipo: item.tipo,
+      total: Number(item.total) || 0,
     }));
   }
 
@@ -73,7 +159,6 @@ export class ExpensesService {
     if (!expense)
       throw new NotFoundException(`Gasto con id ${id} no encontrado`);
 
-    // Retornamos el objeto aplanado
     const { categoria, ...rest } = expense;
     return {
       ...rest,
