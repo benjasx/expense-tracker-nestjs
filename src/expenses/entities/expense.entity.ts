@@ -18,6 +18,9 @@ export class Expense {
   @Column('float', { default: 0 })
   monto: number;
 
+  @Column({ type: 'date' })
+  fecha: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

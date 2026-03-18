@@ -136,32 +136,56 @@ export class ExpensesService {
   }
 
   async getAnalysis(startDate?: string, endDate?: string) {
-    const query = this.expenseRepository
+    // 1. Consulta del Rango Seleccionado
+    const queryFiltrada = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoin('expense.categoria', 'categoria')
       .select('categoria.tipo', 'tipo')
       .addSelect('SUM(expense.monto)', 'total')
       .groupBy('categoria.tipo');
 
-    // Filtro dinámico por fechas
     if (startDate && endDate) {
-      // Usamos >= y <= para incluir los días límite
-      query.andWhere('expense.createdAt BETWEEN :start AND :end', {
-        start: `${startDate} 00:00:00`,
-        end: `${endDate} 23:59:59`,
+      queryFiltrada.andWhere('expense.fecha BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
       });
     }
 
-    const resumen = await query.getRawMany();
+    const resumenFiltrado = await queryFiltrada.getRawMany();
 
-    // ... (el resto de la lógica de formateo de stats que ya teníamos)
-    const stats = { ingresos: 0, gastos: 0, total: 0 };
-    resumen.forEach((row) => {
-      if (row.tipo === 'ingreso') stats.ingresos = parseFloat(row.total);
-      if (row.tipo === 'gasto') stats.gastos = parseFloat(row.total);
+    // 2. Consulta Global (Fondo acumulado)
+    const resumenGlobal = await this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.categoria', 'categoria')
+      .select('categoria.tipo', 'tipo')
+      .addSelect('SUM(expense.monto)', 'total')
+      .groupBy('categoria.tipo')
+      .getRawMany();
+
+    // 3. Estructura Plana
+    let ingresosPeriodo = 0;
+    let gastosPeriodo = 0;
+    let fondoTotal = 0;
+
+    resumenFiltrado.forEach((row) => {
+      const monto = parseFloat(row.total);
+      if (row.tipo === 'ingreso') ingresosPeriodo = monto;
+      if (row.tipo === 'gasto') gastosPeriodo = monto;
     });
-    stats.total = stats.ingresos - stats.gastos;
 
-    return stats;
+    resumenGlobal.forEach((row) => {
+      const monto = parseFloat(row.total);
+      if (row.tipo === 'ingreso') fondoTotal += monto;
+      if (row.tipo === 'gasto') fondoTotal -= monto;
+    });
+
+    return {
+      ingresosPeriodo,
+      gastosPeriodo,
+      totalPeriodo: ingresosPeriodo - gastosPeriodo,
+      fondoTotal,
+      fechaInicio: startDate || 'El Big Bang',
+      fechaFin: endDate || 'Hoy Merengues',
+    };
   }
 }

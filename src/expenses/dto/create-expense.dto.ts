@@ -5,6 +5,7 @@ import {
   Min,
   MinLength,
   IsNotEmpty,
+  IsDateString,
 } from 'class-validator';
 
 export class CreateExpenseDto {
@@ -17,6 +18,13 @@ export class CreateExpenseDto {
   @IsNotEmpty()
   @Min(0.01, { message: 'El monto debe ser mayor a 0' })
   monto: number;
+
+  @IsDateString(
+    {},
+    { message: 'La fecha debe ser un formato válido (ISO 8601)' },
+  )
+  @IsNotEmpty()
+  fecha: string; // El usuario mandará "2026-03-20"
 
   @IsUUID('4', { message: 'El id de la categoría debe ser un UUID válido' })
   @IsNotEmpty()
