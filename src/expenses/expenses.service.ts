@@ -4,13 +4,14 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
-import { Expense } from './entities/expense.entity';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Categoria } from 'src/categorias/entities/categoria.entity';
 import { SearchExpenseDto } from './dto/search-expense.dto';
+import { Expense } from './entities/expense.entity';
+import { Categoria } from 'src/categorias/entities/categoria.entity';
 
 @Injectable()
 export class ExpensesService {
@@ -23,26 +24,27 @@ export class ExpensesService {
   ) {}
 
   async create(createExpenseDto: CreateExpenseDto) {
-    const { categoriaId, ...detallesGasto } = createExpenseDto;
+    const { categoriaId, fecha, ...detallesGasto } = createExpenseDto;
 
     const categoria = await this.categoriaRepository.findOneBy({
       id: categoriaId,
     });
-
-    if (!categoria) {
+    if (!categoria)
       throw new NotFoundException(
         `Categoría con ID ${categoriaId} no encontrada`,
       );
-    }
 
     try {
       const expense = this.expenseRepository.create({
         ...detallesGasto,
+        // Si no viene fecha, ponemos la de hoy por defecto
+        fecha: fecha || new Date().toISOString().split('T')[0],
         categoria,
       });
 
       const { categoria: catEntity, ...registroGuardado } =
         await this.expenseRepository.save(expense);
+
       return {
         ...registroGuardado,
         categoria: categoria.nombre,
@@ -53,11 +55,12 @@ export class ExpensesService {
     }
   }
 
-  // src/expenses/expenses.service.ts
   async findAll(searchDto: SearchExpenseDto) {
     const {
       limit = 12,
       offset = 0,
+      sortBy = 'fecha',
+      order = 'DESC',
       term,
       categoriaId,
       minMonto,
@@ -71,7 +74,7 @@ export class ExpensesService {
       .createQueryBuilder('expense')
       .leftJoinAndSelect('expense.categoria', 'categoria');
 
-    // 1. Filtro de Fechas
+    // --- FILTROS ---
     if (startDate && endDate) {
       queryBuilder.andWhere('expense.fecha BETWEEN :start AND :end', {
         start: startDate,
@@ -79,7 +82,6 @@ export class ExpensesService {
       });
     }
 
-    // 2. Filtro por descripción (Term)
     if (term) {
       queryBuilder.andWhere('LOWER(expense.descripcion) LIKE :term', {
         term: `%${term.toLowerCase()}%`,
@@ -90,45 +92,55 @@ export class ExpensesService {
       queryBuilder.andWhere('categoria.tipo = :tipo', { tipo });
     }
 
-    // 3. Filtro por Categoría ID
     if (categoriaId) {
       queryBuilder.andWhere('categoria.id = :categoriaId', { categoriaId });
     }
 
-    // 4. Filtro por Monto Mayor o igual
-    if (minMonto) {
+    if (minMonto)
       queryBuilder.andWhere('expense.monto >= :minMonto', { minMonto });
+    if (maxMonto)
+      queryBuilder.andWhere('expense.monto <= :maxMonto', { maxMonto });
+
+    // --- ORDENAMIENTO BLINDADO ---
+    const validColumns = ['fecha', 'monto', 'descripcion'];
+    const finalOrder = order.toUpperCase() as 'ASC' | 'DESC';
+    let sortColumn: string;
+
+    if (sortBy === 'categoria') {
+      sortColumn = 'categoria.nombre';
+    } else if (validColumns.includes(sortBy)) {
+      sortColumn = `expense.${sortBy}`;
+    } else {
+      sortColumn = 'expense.fecha'; // Fallback seguro
     }
 
-    if (maxMonto) {
-      queryBuilder.andWhere('expense.monto <= :maxMonto', { maxMonto });
+    // Aplicamos el orden principal
+    queryBuilder.orderBy(sortColumn, finalOrder);
+
+    // Añadimos fecha como segundo criterio solo si no es el principal
+    if (sortBy !== 'fecha') {
+      queryBuilder.addOrderBy('expense.fecha', 'DESC');
     }
-    queryBuilder.orderBy('expense.fecha', 'DESC').take(limit).skip(offset);
+
+    // --- PAGINACIÓN ---
+    queryBuilder.take(limit).skip(offset);
 
     const [expenses, total] = await queryBuilder.getManyAndCount();
 
-    return {
-      total,
-      limit,
-      offset,
-      data: expenses,
-    };
+    return { total, limit, offset, data: expenses };
   }
 
   async getCategoryBreakdown(startDate?: string, endDate?: string) {
     const query = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoin('expense.categoria', 'categoria')
-      // Usamos alias claros para evitar conflictos con los nombres de las tablas
       .select('categoria.nombre', 'nombre')
       .addSelect('categoria.tipo', 'tipo')
       .addSelect('SUM(expense.monto)', 'total')
       .groupBy('categoria.nombre')
       .addGroupBy('categoria.tipo')
-      // Ordenamos de mayor a menor gasto/ingreso para que lo más importante salga arriba
       .orderBy('SUM(expense.monto)', 'DESC');
 
-    // Filtro de fechas mejorado: ahora funciona aunque solo mandes una
     if (startDate && endDate) {
       query.andWhere('expense.fecha BETWEEN :start AND :end', {
         start: startDate,
@@ -142,7 +154,6 @@ export class ExpensesService {
 
     const resultado = await query.getRawMany();
 
-    // Retornamos un mapeo limpio y aseguramos que el total sea número
     return resultado.map((item) => ({
       categoria: item.nombre,
       tipo: item.tipo,
@@ -173,7 +184,6 @@ export class ExpensesService {
       id,
       ...detallesUpdate,
     });
-
     if (!expense)
       throw new NotFoundException(`Gasto con id ${id} no encontrado`);
 
@@ -188,7 +198,6 @@ export class ExpensesService {
 
     try {
       await this.expenseRepository.save(expense);
-
       return this.findOne(id);
     } catch (error) {
       this.handleDBErrors(error);
@@ -197,27 +206,14 @@ export class ExpensesService {
 
   async remove(id: string) {
     const expense = await this.expenseRepository.findOneBy({ id });
-
-    if (!expense) {
+    if (!expense)
       throw new NotFoundException(`Gasto con ID ${id} no encontrado`);
-    }
 
     await this.expenseRepository.remove(expense);
-
     return {
       message: `El gasto "${expense.descripcion}" por $${expense.monto} fue eliminado con éxito.`,
       deletedId: id,
     };
-  }
-
-  private handleDBErrors(error: any): never {
-    console.log(error);
-    if (error.code === '23505')
-      throw new BadRequestException('Registro duplicado');
-
-    throw new InternalServerErrorException(
-      'Error inesperado, revisa los logs del servidor',
-    );
   }
 
   async getAnalysis(startDate?: string, endDate?: string) {
@@ -238,7 +234,7 @@ export class ExpensesService {
 
     const resumenFiltrado = await queryFiltrada.getRawMany();
 
-    // 2. Consulta Global (Fondo acumulado)
+    // 2. Consulta Global
     const resumenGlobal = await this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoin('expense.categoria', 'categoria')
@@ -247,19 +243,18 @@ export class ExpensesService {
       .groupBy('categoria.tipo')
       .getRawMany();
 
-    // 3. Estructura Plana
     let ingresosPeriodo = 0;
     let gastosPeriodo = 0;
     let fondoTotal = 0;
 
     resumenFiltrado.forEach((row) => {
-      const monto = parseFloat(row.total);
+      const monto = Number(row.total);
       if (row.tipo === 'ingreso') ingresosPeriodo = monto;
       if (row.tipo === 'gasto') gastosPeriodo = monto;
     });
 
     resumenGlobal.forEach((row) => {
-      const monto = parseFloat(row.total);
+      const monto = Number(row.total);
       if (row.tipo === 'ingreso') fondoTotal += monto;
       if (row.tipo === 'gasto') fondoTotal -= monto;
     });
@@ -269,8 +264,20 @@ export class ExpensesService {
       gastosPeriodo,
       totalPeriodo: ingresosPeriodo - gastosPeriodo,
       fondoTotal,
-      fechaInicio: startDate || 'El Big Bang',
-      fechaFin: endDate || 'Hoy Merengues',
+      fechaInicio: startDate || 'Inicio de los tiempos',
+      fechaFin: endDate || 'Hoy',
     };
+  }
+
+  private handleDBErrors(error: any): never {
+    console.error(error);
+    if (error.code === '23505')
+      throw new BadRequestException('Registro duplicado en la base de datos');
+    if (error.code === '22P02')
+      throw new BadRequestException('ID o formato de dato inválido');
+
+    throw new InternalServerErrorException(
+      'Error inesperado, revisa los logs del servidor',
+    );
   }
 }

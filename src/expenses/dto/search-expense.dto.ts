@@ -7,6 +7,7 @@ import {
   IsUUID,
   IsDateString,
   IsEnum,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TipoMovimiento } from 'src/categorias/entities/categoria.entity';
@@ -51,4 +52,17 @@ export class SearchExpenseDto {
   @IsPositive()
   @Type(() => Number)
   maxMonto?: number; // Este será el límite máximo
+
+  @IsOptional()
+  @IsIn(['fecha', 'monto', 'descripcion', 'categoria'], {
+    message: 'Solo puedes ordenar por: fecha, monto, descripcion o categoria',
+  })
+  sortBy?: string = 'fecha';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ASC', 'DESC', 'asc', 'desc'], {
+    message: 'El orden debe ser ASC o DESC',
+  })
+  order?: 'ASC' | 'DESC' = 'DESC';
 }
