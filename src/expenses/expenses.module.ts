@@ -4,6 +4,7 @@ import { ExpensesController } from './expenses.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Expense } from './entities/expense.entity';
 import { Categoria } from 'src/categorias/entities/categoria.entity';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   controllers: [ExpensesController],
@@ -11,6 +12,7 @@ import { Categoria } from 'src/categorias/entities/categoria.entity';
   imports: [
     // ¡ESTO ES LO QUE CREA LA TABLA!
     TypeOrmModule.forFeature([Expense, Categoria]),
+    AuthModule,
   ],
 })
 export class ExpensesModule {}

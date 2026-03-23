@@ -25,16 +25,19 @@ export class CategoriasController {
   }
 
   @Get()
+  @Auth()
   findAll() {
     return this.categoriasService.findAll();
   }
 
   @Get(':term')
+  @Auth()
   findOne(@Param('term') term: string) {
     return this.categoriasService.findOne(term);
   }
 
   @Patch(':id')
+  @Auth(ValidRoles.admin)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCategoriaDto: UpdateCategoriaDto,
@@ -43,6 +46,7 @@ export class CategoriasController {
   }
 
   @Delete(':id')
+  @Auth(ValidRoles.admin)
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.categoriasService.remove(id);
   }
