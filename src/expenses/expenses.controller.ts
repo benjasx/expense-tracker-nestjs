@@ -13,6 +13,8 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { SearchExpenseDto } from './dto/search-expense.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { User } from 'src/auth/entities/user.entity';
 
 @Controller('expenses')
 export class ExpensesController {
@@ -20,14 +22,14 @@ export class ExpensesController {
 
   @Post()
   @Auth()
-  create(@Body() createExpenseDto: CreateExpenseDto) {
-    return this.expensesService.create(createExpenseDto);
+  create(@Body() createExpenseDto: CreateExpenseDto, @GetUser() user: User) {
+    return this.expensesService.create(createExpenseDto, user);
   }
 
   @Get()
   @Auth()
-  findAll(@Query() searchDto: SearchExpenseDto) {
-    return this.expensesService.findAll(searchDto);
+  findAll(@Query() searchDto: SearchExpenseDto, @GetUser() user: User) {
+    return this.expensesService.findAll(searchDto, user);
   }
 
   @Get('categories-analysis')
@@ -56,8 +58,12 @@ export class ExpensesController {
 
   @Patch(':id')
   @Auth()
-  update(@Param('id') id: string, @Body() updateExpenseDto: UpdateExpenseDto) {
-    return this.expensesService.update(id, updateExpenseDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateExpenseDto: UpdateExpenseDto,
+    @GetUser() user: User,
+  ) {
+    return this.expensesService.update(id, updateExpenseDto, user);
   }
 
   @Delete(':id')

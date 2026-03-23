@@ -12,6 +12,7 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { SearchExpenseDto } from './dto/search-expense.dto';
 import { Expense } from './entities/expense.entity';
 import { Categoria } from 'src/categorias/entities/categoria.entity';
+import { User } from 'src/auth/entities/user.entity';
 
 @Injectable()
 export class ExpensesService {
@@ -23,7 +24,7 @@ export class ExpensesService {
     private readonly categoriaRepository: Repository<Categoria>,
   ) {}
 
-  async create(createExpenseDto: CreateExpenseDto) {
+  async create(createExpenseDto: CreateExpenseDto, user: User) {
     const { categoriaId, fecha, ...detallesGasto } = createExpenseDto;
 
     const categoria = await this.categoriaRepository.findOneBy({
@@ -40,6 +41,7 @@ export class ExpensesService {
         // Si no viene fecha, ponemos la de hoy por defecto
         fecha: fecha || new Date().toISOString().split('T')[0],
         categoria,
+        user,
       });
 
       const { categoria: catEntity, ...registroGuardado } =
@@ -49,13 +51,14 @@ export class ExpensesService {
         ...registroGuardado,
         categoria: categoria.nombre,
         tipoMovimiento: categoria.tipo,
+        userId: user.id,
       };
     } catch (error) {
       this.handleDBErrors(error);
     }
   }
 
-  async findAll(searchDto: SearchExpenseDto) {
+  async findAll(searchDto: SearchExpenseDto, user: User) {
     const {
       limit = 12,
       offset = 0,
@@ -73,6 +76,8 @@ export class ExpensesService {
     const queryBuilder = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoinAndSelect('expense.categoria', 'categoria');
+    /*  .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.user.id = :userId', { userId: user.id }); */
 
     // --- FILTROS ---
     if (startDate && endDate) {
@@ -177,7 +182,7 @@ export class ExpensesService {
     };
   }
 
-  async update(id: string, updateExpenseDto: UpdateExpenseDto) {
+  async update(id: string, updateExpenseDto: UpdateExpenseDto, user: User) {
     const { categoriaId, ...detallesUpdate } = updateExpenseDto;
 
     const expense = await this.expenseRepository.preload({
@@ -197,6 +202,7 @@ export class ExpensesService {
     }
 
     try {
+      expense.user = user; // Aseguramos que el usuario no se pierda en la actualización
       await this.expenseRepository.save(expense);
       return this.findOne(id);
     } catch (error) {
