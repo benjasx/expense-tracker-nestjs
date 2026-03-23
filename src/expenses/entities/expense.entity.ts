@@ -1,3 +1,4 @@
+import { User } from 'src/auth/entities/user.entity';
 import { Categoria } from 'src/categorias/entities/categoria.entity';
 import {
   Column,
@@ -31,4 +32,7 @@ export class Expense {
     { onDelete: 'CASCADE' }, // Si borras la categoría, se borran sus gastos (opcional)
   )
   categoria: Categoria;
+
+  @ManyToOne(() => User, (user) => user.expenses, { eager: true })
+  user: User;
 }

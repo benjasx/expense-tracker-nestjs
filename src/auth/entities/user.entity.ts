@@ -1,8 +1,10 @@
+import { Expense } from 'src/expenses/entities/expense.entity';
 import {
   BeforeInsert,
   BeforeUpdate,
   Column,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -34,6 +36,9 @@ export class User {
     default: ['user'],
   })
   roles: string[];
+
+  @OneToMany(() => Expense, (expense) => expense.user)
+  expenses: Expense[];
 
   @BeforeInsert()
   checkFieldsBeforeInsert() {
