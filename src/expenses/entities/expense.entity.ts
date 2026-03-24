@@ -33,6 +33,9 @@ export class Expense {
   )
   categoria: Categoria;
 
-  @ManyToOne(() => User, (user) => user.expenses, { eager: true })
+  @ManyToOne(() => User, (user) => user.expenses, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   user: User;
 }

@@ -5,9 +5,14 @@ import { SeedController } from './seed.controller';
 import { Categoria } from '../categorias/entities/categoria.entity';
 import { Expense } from '../expenses/entities/expense.entity';
 import { AuthModule } from 'src/auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Categoria, Expense]), AuthModule],
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([Categoria, Expense]),
+    AuthModule,
+  ],
   controllers: [SeedController],
   providers: [SeedService],
 })
