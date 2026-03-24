@@ -35,19 +35,21 @@ export class ExpensesController {
   @Get('categories-analysis')
   @Auth()
   getCategoriesAnalysis(
+    @GetUser() user: User,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.expensesService.getCategoryBreakdown(startDate, endDate);
+    return this.expensesService.getCategoryBreakdown(user, startDate, endDate);
   }
 
   @Get('balance')
   @Auth()
   getAnalysis(
+    @GetUser() user: User,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.expensesService.getAnalysis(startDate, endDate);
+    return this.expensesService.getAnalysis(user, startDate, endDate);
   }
 
   @Get(':id')

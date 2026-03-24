@@ -75,9 +75,9 @@ export class ExpensesService {
 
     const queryBuilder = this.expenseRepository
       .createQueryBuilder('expense')
-      .leftJoinAndSelect('expense.categoria', 'categoria');
-    /*  .leftJoinAndSelect('expense.user', 'user')
-      .where('expense.user.id = :userId', { userId: user.id }); */
+      .leftJoinAndSelect('expense.categoria', 'categoria')
+      .leftJoinAndSelect('expense.user', 'user')
+      .where('expense.user.id = :userId', { userId: user.id });
 
     // --- FILTROS ---
     if (startDate && endDate) {
@@ -135,13 +135,14 @@ export class ExpensesService {
     return { total, limit, offset, data: expenses };
   }
 
-  async getCategoryBreakdown(startDate?: string, endDate?: string) {
+  async getCategoryBreakdown(user: User, startDate?: string, endDate?: string) {
     const query = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoin('expense.categoria', 'categoria')
       .select('categoria.nombre', 'nombre')
       .addSelect('categoria.tipo', 'tipo')
       .addSelect('SUM(expense.monto)', 'total')
+      .where('expense.user.id = :userId', { userId: user.id })
       .groupBy('categoria.nombre')
       .addGroupBy('categoria.tipo')
       .orderBy('SUM(expense.monto)', 'DESC');
@@ -164,6 +165,65 @@ export class ExpensesService {
       tipo: item.tipo,
       total: Number(item.total) || 0,
     }));
+  }
+
+  async getAnalysis(user: User, startDate?: string, endDate?: string) {
+    // 1. Consulta del Rango Seleccionado (Filtrada por Usuario y Fecha)
+    const queryFiltrada = this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.categoria', 'categoria')
+      .select('categoria.tipo', 'tipo')
+      .addSelect('SUM(expense.monto)', 'total')
+      // --- FILTRO DE USUARIO ---
+      .where('expense.user.id = :userId', { userId: user.id })
+      .groupBy('categoria.tipo');
+
+    if (startDate && endDate) {
+      queryFiltrada.andWhere('expense.fecha BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      });
+    }
+
+    const resumenFiltrado = await queryFiltrada.getRawMany();
+
+    // 2. Consulta Global (FILTRADA POR USUARIO)
+    // Sin este filtro, el fondoTotal sumaría el dinero de todo
+    const resumenGlobal = await this.expenseRepository
+      .createQueryBuilder('expense')
+      .leftJoin('expense.categoria', 'categoria')
+      .select('categoria.tipo', 'tipo')
+      .addSelect('SUM(expense.monto)', 'total')
+      .where('expense.user.id = :userId', { userId: user.id }) // <---
+      .groupBy('categoria.tipo')
+      .getRawMany();
+
+    let ingresosPeriodo = 0;
+    let gastosPeriodo = 0;
+    let fondoTotal = 0;
+
+    // Procesamos el resumen del periodo (el rango de fechas)
+    resumenFiltrado.forEach((row) => {
+      const monto = Number(row.total);
+      if (row.tipo === 'ingreso') ingresosPeriodo = monto;
+      if (row.tipo === 'gasto') gastosPeriodo = monto;
+    });
+
+    // Procesamos el fondo total (histórico del usuario)
+    resumenGlobal.forEach((row) => {
+      const monto = Number(row.total);
+      if (row.tipo === 'ingreso') fondoTotal += monto;
+      if (row.tipo === 'gasto') fondoTotal -= monto;
+    });
+
+    return {
+      ingresosPeriodo,
+      gastosPeriodo,
+      totalPeriodo: ingresosPeriodo - gastosPeriodo,
+      fondoTotal, // Dinero real disponible de este usuario específico
+      fechaInicio: startDate || 'Inicio de los tiempos',
+      fechaFin: endDate || 'Hoy',
+    };
   }
 
   async findOne(id: string) {
@@ -219,59 +279,6 @@ export class ExpensesService {
     return {
       message: `El gasto "${expense.descripcion}" por $${expense.monto} fue eliminado con éxito.`,
       deletedId: id,
-    };
-  }
-
-  async getAnalysis(startDate?: string, endDate?: string) {
-    // 1. Consulta del Rango Seleccionado
-    const queryFiltrada = this.expenseRepository
-      .createQueryBuilder('expense')
-      .leftJoin('expense.categoria', 'categoria')
-      .select('categoria.tipo', 'tipo')
-      .addSelect('SUM(expense.monto)', 'total')
-      .groupBy('categoria.tipo');
-
-    if (startDate && endDate) {
-      queryFiltrada.andWhere('expense.fecha BETWEEN :start AND :end', {
-        start: startDate,
-        end: endDate,
-      });
-    }
-
-    const resumenFiltrado = await queryFiltrada.getRawMany();
-
-    // 2. Consulta Global
-    const resumenGlobal = await this.expenseRepository
-      .createQueryBuilder('expense')
-      .leftJoin('expense.categoria', 'categoria')
-      .select('categoria.tipo', 'tipo')
-      .addSelect('SUM(expense.monto)', 'total')
-      .groupBy('categoria.tipo')
-      .getRawMany();
-
-    let ingresosPeriodo = 0;
-    let gastosPeriodo = 0;
-    let fondoTotal = 0;
-
-    resumenFiltrado.forEach((row) => {
-      const monto = Number(row.total);
-      if (row.tipo === 'ingreso') ingresosPeriodo = monto;
-      if (row.tipo === 'gasto') gastosPeriodo = monto;
-    });
-
-    resumenGlobal.forEach((row) => {
-      const monto = Number(row.total);
-      if (row.tipo === 'ingreso') fondoTotal += monto;
-      if (row.tipo === 'gasto') fondoTotal -= monto;
-    });
-
-    return {
-      ingresosPeriodo,
-      gastosPeriodo,
-      totalPeriodo: ingresosPeriodo - gastosPeriodo,
-      fondoTotal,
-      fechaInicio: startDate || 'Inicio de los tiempos',
-      fechaFin: endDate || 'Hoy',
     };
   }
 
