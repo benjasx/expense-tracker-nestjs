@@ -1,7 +1,10 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import type { Response } from 'express'; // Import type para evitar errores de TS
 import { Auth } from 'src/auth/decorators/auth.decorator';
+import { SearchExpenseDto } from 'src/expenses/dto/search-expense.dto';
+import { GetUser } from 'src/auth/decorators/get-user.decorator';
+import { User } from 'src/auth/entities/user.entity';
 
 @Controller('reports')
 export class ReportsController {
@@ -9,9 +12,13 @@ export class ReportsController {
 
   @Get('bill')
   @Auth()
-  async getBillReports(@Res() response: Response) {
+  async getBillReports(
+    @Query() searchDto: SearchExpenseDto,
+    @GetUser() user: User,
+    @Res() response: Response,
+  ) {
     try {
-      const pdf = await this.reportsService.getBillReport();
+      const pdf = await this.reportsService.getBillReport(searchDto, user);
 
       response.setHeader('Content-Type', 'application/pdf');
       response.setHeader('Content-Disposition', 'inline; filename=factura.pdf');
