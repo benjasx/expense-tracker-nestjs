@@ -95,37 +95,100 @@ export const ReportByFilter = (
       {
         columns: [
           {
-            text: [
-              { text: `Usuario: ${user.fullName}\n`, style: 'h2' },
-              { text: 'Periodo de fechas:\n', style: 'h3' },
+            // COLUMNA IZQUIERDA: Info del Usuario
+            width: '*',
+            stack: [
+              { text: `Usuario: ${user.fullName}`, style: 'h2' },
               {
-                text: `De ${balanceData.fechaInicio} al ${balanceData.fechaFin}\n`,
+                text: 'Periodo de fechas:',
+                style: 'h3',
+                bold: true,
+                margin: [0, 5, 0, 0],
+              },
+              {
+                text: `De ${balanceData.fechaInicio} al ${balanceData.fechaFin}`,
                 style: 'h3',
               },
             ],
           },
           {
-            text: [
-              {
-                text: `Gastos del periodo: ${currencyFormatter.format(balanceData.gastosPeriodo)}\n`,
-                style: 'h3',
-              },
-              {
-                text: `ingresos del Periodo: ${currencyFormatter.format(balanceData.ingresosPeriodo)}\n`,
-                style: 'h3',
-              },
-              {
-                text: `Total del Periodo: ${currencyFormatter.format(balanceData.totalPeriodo)}\n`,
-                style: 'h3',
-              },
-              {
-                text: `Fondo Total: ${currencyFormatter.format(balanceData.fondoTotal)}\n`,
-                style: 'h3',
-              },
-            ],
-            alignment: 'right',
+            // COLUMNA DERECHA: La Mini Tabla pegada al borde
+            width: 'auto',
+            table: {
+              widths: ['*', 80], // Ajusta estos valores para que el ancho total te guste
+              body: [
+                [
+                  {
+                    text: 'Gastos del periodo',
+                    fillColor: '#000000',
+                    color: '#ffffff',
+                    bold: true,
+                    margin: [5, 2, 5, 2],
+                  },
+                  {
+                    text: currencyFormatter.format(balanceData.gastosPeriodo),
+                    alignment: 'right',
+                    margin: [5, 2, 5, 2],
+                    bold: true,
+                  },
+                ],
+                [
+                  {
+                    text: 'Ingresos del Periodo',
+                    fillColor: '#000000',
+                    color: '#ffffff',
+                    bold: true,
+                    margin: [5, 2, 5, 2],
+                  },
+                  {
+                    text: currencyFormatter.format(balanceData.ingresosPeriodo),
+                    alignment: 'right',
+                    margin: [5, 2, 5, 2],
+                    bold: true,
+                  },
+                ],
+                [
+                  {
+                    text: 'Total del Periodo',
+                    fillColor: '#000000',
+                    color: '#ffffff',
+                    bold: true,
+                    margin: [5, 2, 5, 2],
+                  },
+                  {
+                    text: currencyFormatter.format(balanceData.totalPeriodo),
+                    alignment: 'right',
+                    margin: [5, 2, 5, 2],
+                    bold: true,
+                  },
+                ],
+                [
+                  {
+                    text: 'Fondo Total',
+                    fillColor: '#000000',
+                    color: '#ffffff',
+                    bold: true,
+                    margin: [5, 2, 5, 2],
+                  },
+                  {
+                    text: currencyFormatter.format(balanceData.fondoTotal),
+                    alignment: 'right',
+                    margin: [5, 2, 5, 2],
+                    bold: true,
+                    color: '#1A237E',
+                  },
+                ],
+              ],
+            },
+            layout: {
+              hLineWidth: (i) => 0.5,
+              vLineWidth: (i) => 0.5,
+              hLineColor: () => '#444444',
+              vLineColor: () => '#444444',
+            },
           },
         ],
+        margin: [0, 10, 0, 20],
       },
 
       {
