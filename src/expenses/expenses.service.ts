@@ -167,7 +167,9 @@ export class ExpensesService {
     }));
   }
 
-  async getAnalysis(user: User, startDate?: string, endDate?: string) {
+  async getAnalysis(user: User, searchDto: SearchExpenseDto) {
+    const { startDate, endDate } = searchDto;
+
     // 1. Consulta del Rango Seleccionado (Filtrada por Usuario y Fecha)
     const queryFiltrada = this.expenseRepository
       .createQueryBuilder('expense')

@@ -3,7 +3,10 @@ import type {
   StyleDictionary,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces';
+import { User } from 'src/auth/entities/user.entity';
 import { Expense } from 'src/expenses/entities/expense.entity';
+import { ReportByFilterInterface } from '../types/ReportByFilter.type';
+import { currencyFormatter } from '../helpers/currencyFormatter';
 
 const logo: Content = {
   image: 'src/assets/logo.png',
@@ -34,12 +37,14 @@ const styles: StyleDictionary = {
   },
 };
 
-export const ReportByFilter = (expenses: Expense[]): TDocumentDefinitions => {
-  console.log(expenses[1]);
-
+export const ReportByFilter = (
+  expenses: Expense[],
+  balanceData: ReportByFilterInterface,
+  user: User,
+): TDocumentDefinitions => {
   const rows = expenses.map((exp) => {
     const isIngreso = exp.categoria?.tipo === 'ingreso';
-    const montoFormateado = `$ ${exp.monto.toFixed(2)}`;
+    const montoFormateado = currencyFormatter.format(exp.monto);
 
     return [
       exp.fecha.toString(),
@@ -64,7 +69,6 @@ export const ReportByFilter = (expenses: Expense[]): TDocumentDefinitions => {
     ];
   });
 
-  // 2. Definimos el cuerpo de la tabla con los encabezados
   const tableBody = [
     [
       { text: 'Fecha', style: 'tableHeader' },
@@ -92,18 +96,32 @@ export const ReportByFilter = (expenses: Expense[]): TDocumentDefinitions => {
         columns: [
           {
             text: [
-              { text: `Usuario: ${'John Doe'}\n`, style: 'h2' },
+              { text: `Usuario: ${user.fullName}\n`, style: 'h2' },
               { text: 'Periodo de fechas:\n', style: 'h3' },
-              //TODO: Cambiar las fechas por las del filtro
-              { text: `De ${'01.01.2026'} al ${'01.05.2026'}`, style: 'h3' },
+              {
+                text: `De ${balanceData.fechaInicio} al ${balanceData.fechaFin}\n`,
+                style: 'h3',
+              },
             ],
           },
           {
             text: [
-              { text: `Gastos del periodo: $${100}\n`, style: 'h3' },
-              //TODO: Cambiar las fechas por las del filtro
-              { text: `ingresos del Periodo: $${2000}\n`, style: 'h3' },
-              { text: `Fondo Total: $${900}`, style: 'h3' },
+              {
+                text: `Gastos del periodo: ${currencyFormatter.format(balanceData.gastosPeriodo)}\n`,
+                style: 'h3',
+              },
+              {
+                text: `ingresos del Periodo: ${currencyFormatter.format(balanceData.ingresosPeriodo)}\n`,
+                style: 'h3',
+              },
+              {
+                text: `Total del Periodo: ${currencyFormatter.format(balanceData.totalPeriodo)}\n`,
+                style: 'h3',
+              },
+              {
+                text: `Fondo Total: ${currencyFormatter.format(balanceData.fondoTotal)}\n`,
+                style: 'h3',
+              },
             ],
             alignment: 'right',
           },

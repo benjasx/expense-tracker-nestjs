@@ -44,12 +44,8 @@ export class ExpensesController {
 
   @Get('balance')
   @Auth()
-  getAnalysis(
-    @GetUser() user: User,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
-    return this.expensesService.getAnalysis(user, startDate, endDate);
+  getAnalysis(@GetUser() user: User, @Query() searchDto: SearchExpenseDto) {
+    return this.expensesService.getAnalysis(user, searchDto);
   }
 
   @Get(':id')

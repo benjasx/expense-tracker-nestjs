@@ -14,12 +14,16 @@ export class ReportsService {
   ) {}
 
   async getBillReport(searchDto: SearchExpenseDto, user: User) {
-    const { data: expenses } = await this.expensesService.findAll(
-      { ...searchDto, limit: 9000 },
+    const [expensesResponse, balanceData] = await Promise.all([
+      this.expensesService.findAll({ ...searchDto, limit: 9000 }, user),
+      this.expensesService.getAnalysis(user, searchDto),
+    ]);
+
+    const docDefinition: TDocumentDefinitions = ReportByFilter(
+      expensesResponse.data,
+      balanceData,
       user,
     );
-
-    const docDefinition: TDocumentDefinitions = ReportByFilter(expenses);
 
     return this.printerService.createPdf(docDefinition);
   }
