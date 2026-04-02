@@ -51,7 +51,7 @@ export const SEED_DATA: SeedData = {
     { nombre: 'fondo inicial', tipo: TipoMovimiento.INGRESO },
 
     // --- GASTOS NEGOCIO ---
-    { nombre: 'renta local', tipo: TipoMovimiento.GASTO },
+    { nombre: 'renta vivienda', tipo: TipoMovimiento.GASTO },
     { nombre: 'repuestos', tipo: TipoMovimiento.GASTO },
     { nombre: 'herramientas', tipo: TipoMovimiento.GASTO },
     { nombre: 'publicidad', tipo: TipoMovimiento.GASTO },
