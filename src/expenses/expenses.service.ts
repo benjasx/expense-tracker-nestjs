@@ -135,7 +135,11 @@ export class ExpensesService {
     return { total, limit, offset, data: expenses };
   }
 
-  async getCategoryBreakdown(user: User, startDate?: string, endDate?: string) {
+  async getCategoryBreakdown(user: User, searchDto: SearchExpenseDto) {
+    const startDate = searchDto?.startDate || '2026-01-01';
+    const endDate =
+      searchDto?.endDate || new Date().toISOString().split('T')[0];
+
     const query = this.expenseRepository
       .createQueryBuilder('expense')
       .leftJoin('expense.categoria', 'categoria')

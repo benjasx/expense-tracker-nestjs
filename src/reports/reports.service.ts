@@ -5,6 +5,7 @@ import { ExpensesService } from 'src/expenses/expenses.service';
 import { User } from 'src/auth/entities/user.entity';
 import { SearchExpenseDto } from 'src/expenses/dto/search-expense.dto';
 import { ReportByFilter } from './documents/ReportByFilter';
+import { ReportByCategory } from './documents/ReportByCategoria';
 
 @Injectable()
 export class ReportsService {
@@ -25,6 +26,17 @@ export class ReportsService {
       user,
     );
 
+    return this.printerService.createPdf(docDefinition);
+  }
+
+  async getReportByCategory(searchDto: SearchExpenseDto, user: User) {
+    const expenseByCategory = await this.expensesService.getCategoryBreakdown(
+      user,
+      searchDto,
+    );
+
+    const docDefinition: TDocumentDefinitions =
+      ReportByCategory(expenseByCategory);
     return this.printerService.createPdf(docDefinition);
   }
 }

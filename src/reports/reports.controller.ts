@@ -32,4 +32,32 @@ export class ReportsController {
       }
     }
   }
+
+  @Get('report-category')
+  @Auth()
+  async getReportCategory(
+    @Query() searchDto: SearchExpenseDto,
+    @GetUser() user: User,
+    @Res() response: Response,
+  ) {
+    try {
+      const pdf = await this.reportsService.getReportByCategory(
+        searchDto,
+        user,
+      );
+
+      response.setHeader('Content-Type', 'application/pdf');
+      response.setHeader('Content-Disposition', 'inline; filename=factura.pdf');
+
+      const buffer = await pdf.getBuffer();
+      response.end(buffer);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      if (!response.headersSent) {
+        response.status(500).send('Error interno en el motor de PDF');
+      }
+    }
+
+    return;
+  }
 }
