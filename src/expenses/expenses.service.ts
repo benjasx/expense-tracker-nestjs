@@ -245,6 +245,7 @@ export class ExpensesService {
     return {
       ...rest,
       categoria: categoria?.nombre || 'sin categoría',
+      categoriaId: categoria?.id || null,
     };
   }
 
