@@ -35,8 +35,12 @@ export class ReportsService {
       searchDto,
     );
 
-    const docDefinition: TDocumentDefinitions =
-      ReportByCategory(expenseByCategory);
+    const docDefinition: TDocumentDefinitions = ReportByCategory(
+      expenseByCategory,
+      searchDto.startDate,
+      searchDto.endDate,
+    );
+
     return this.printerService.createPdf(docDefinition);
   }
 }
