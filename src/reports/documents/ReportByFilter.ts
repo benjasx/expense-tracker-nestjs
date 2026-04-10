@@ -42,42 +42,113 @@ export const ReportByFilter = (
   balanceData: ReportByFilterInterface,
   user: User,
 ): TDocumentDefinitions => {
+  // 🚩 CALCULAMOS TOTALES SOLO DE LOS FILTRADOS
+  const totalIngresos = expenses
+    .filter((e) => e.categoria?.tipo === 'ingreso')
+    .reduce((sum, e) => sum + e.monto, 0);
+
+  const totalGastos = expenses
+    .filter((e) => e.categoria?.tipo === 'gasto')
+    .reduce((sum, e) => sum + e.monto, 0);
+
   const rows = expenses.map((exp) => {
     const isIngreso = exp.categoria?.tipo === 'ingreso';
     const montoFormateado = currencyFormatter.format(exp.monto);
 
     return [
-      exp.fecha.toString(),
+      exp.fecha.toString().split('T')[0], // Limpiamos la fecha si es ISO
       exp.descripcion,
-
+      exp.categoria?.nombre || 'S/C',
       {
         text: isIngreso ? 'INGRESO' : 'GASTO',
         bold: true,
         alignment: 'center' as const,
         color: '#333333',
       },
-      exp.categoria?.nombre || 'S/C',
-
       {
         text: montoFormateado,
         alignment: 'right' as const,
         bold: true,
         noWrap: true,
-
         color: isIngreso ? '#2e5b9a' : '#e74c3c',
       },
     ];
   });
 
-  const tableBody = [
+  const tableBody: any[][] = [
     [
       { text: 'Fecha', style: 'tableHeader' },
       { text: 'Descripción', style: 'tableHeader' },
       { text: 'Categoría', style: 'tableHeader' },
-      { text: 'tipo', style: 'tableHeader' },
-      { text: 'Monto', style: 'tableHeader' },
+      { text: 'Tipo', style: 'tableHeader', alignment: 'center' },
+      { text: 'Monto', style: 'tableHeader', alignment: 'right' },
     ],
     ...rows,
+    // 🚩 FILAS DE TOTALES AL FINAL DE LA TABLA
+    [
+      {
+        text: 'TOTAL INGRESOS (FILTRADO)',
+        colSpan: 4,
+        alignment: 'right',
+        bold: true,
+        fillColor: '#f8f9fa',
+        margin: [0, 5, 0, 5],
+      },
+      {},
+      {},
+      {}, // Celdas vacías por el colSpan
+      {
+        text: currencyFormatter.format(totalIngresos),
+        alignment: 'right',
+        bold: true,
+        color: '#2e5b9a',
+        fillColor: '#f8f9fa',
+        margin: [0, 5, 0, 5],
+      },
+    ],
+    [
+      {
+        text: 'TOTAL GASTOS (FILTRADO)',
+        colSpan: 4,
+        alignment: 'right',
+        bold: true,
+        fillColor: '#f8f9fa',
+        margin: [0, 5, 0, 5],
+      },
+      {},
+      {},
+      {},
+      {
+        text: currencyFormatter.format(totalGastos),
+        alignment: 'right',
+        bold: true,
+        color: '#e74c3c',
+        fillColor: '#f8f9fa',
+        margin: [0, 5, 0, 5],
+      },
+    ],
+    [
+      {
+        text: 'BALANCE NETO SELECCIÓN',
+        colSpan: 4,
+        alignment: 'right',
+        bold: true,
+        fillColor: '#1A237E',
+        color: '#ffffff',
+        margin: [0, 5, 0, 5],
+      },
+      {},
+      {},
+      {},
+      {
+        text: currencyFormatter.format(totalIngresos - totalGastos),
+        alignment: 'right',
+        bold: true,
+        fillColor: '#1A237E',
+        color: '#ffffff',
+        margin: [0, 5, 0, 5],
+      },
+    ],
   ];
 
   return {
@@ -95,7 +166,6 @@ export const ReportByFilter = (
       {
         columns: [
           {
-            // COLUMNA IZQUIERDA: Info del Usuario
             width: '*',
             stack: [
               { text: `Usuario: ${user.fullName}`, style: 'h2' },
@@ -112,10 +182,9 @@ export const ReportByFilter = (
             ],
           },
           {
-            // COLUMNA DERECHA: La Mini Tabla pegada al borde
             width: 'auto',
             table: {
-              widths: ['*', 80], // Ajusta estos valores para que el ancho total te guste
+              widths: ['*', 80],
               body: [
                 [
                   {
@@ -181,8 +250,8 @@ export const ReportByFilter = (
               ],
             },
             layout: {
-              hLineWidth: (i) => 0.5,
-              vLineWidth: (i) => 0.5,
+              hLineWidth: () => 0.5,
+              vLineWidth: () => 0.5,
               hLineColor: () => '#444444',
               vLineColor: () => '#444444',
             },
@@ -198,14 +267,13 @@ export const ReportByFilter = (
         margin: [0, 20],
       },
 
-      //Tabla
       {
         table: {
           headerRows: 1,
-          widths: ['auto', '*', 'auto', 'auto', 'auto'], // '*' hace que la descripción use el espacio sobrante
+          widths: ['auto', '*', 'auto', 'auto', 'auto'],
           body: tableBody,
         },
-        layout: 'lightHorizontalLines', // Le da un toque muy limpio
+        layout: 'lightHorizontalLines',
       },
     ],
     styles: styles,
